@@ -9,7 +9,7 @@ on:
 
 jobs:
   generate-split-stub-sources:
-    runs-on: macos-15-intel   # arm64 hosted Macs are capacity-starved; Intel cross-builds arm64 fine
+    runs-on: macos-26-intel   # free std runner; arm64 hosted Macs are capacity-starved, Intel cross-builds arm64 fine
     env:
       GIT_CONFIG_NOSYSTEM: 1
       GIT_TERMINAL_PROMPT: 0
@@ -41,13 +41,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Package.swift needs Swift tools 6.2 = Xcode 26; the hosted image defaults to an older Xcode.
-      - name: Select Xcode 26
+      # The pinned SwiftGodot needs Swift tools 6.3 = Xcode 26.4+. Pin the LOWEST such Xcode: closest to
+      # what upstream built this commit with (June 2026) and to the Xcode our games' archive links with.
+      - name: Select Xcode 26.4.1
         run: |
           set -euxo pipefail
-          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XC" ]; then
-            echo "No Xcode 26 on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
+          XC=/Applications/Xcode_26.4.1.app
+          if [ ! -d "$XC" ]; then
+            echo "No $XC on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
             exit 1
           fi
           sudo xcode-select -s "$XC/Contents/Developer"
@@ -276,7 +277,7 @@ jobs:
       - build-stub-linux-arm64
       - build-stub-windows-x64
       - build-stub-windows-arm64
-    runs-on: macos-15-intel   # arm64 hosted Macs are capacity-starved; Intel cross-builds arm64 fine
+    runs-on: macos-26-intel   # free std runner; arm64 hosted Macs are capacity-starved, Intel cross-builds arm64 fine
     timeout-minutes: 300   # hosted Intel is slower than the author's own Mac
     permissions:
       contents: write
@@ -311,13 +312,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Package.swift needs Swift tools 6.2 = Xcode 26; the hosted image defaults to an older Xcode.
-      - name: Select Xcode 26
+      # The pinned SwiftGodot needs Swift tools 6.3 = Xcode 26.4+. Pin the LOWEST such Xcode: closest to
+      # what upstream built this commit with (June 2026) and to the Xcode our games' archive links with.
+      - name: Select Xcode 26.4.1
         run: |
           set -euxo pipefail
-          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XC" ]; then
-            echo "No Xcode 26 on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
+          XC=/Applications/Xcode_26.4.1.app
+          if [ ! -d "$XC" ]; then
+            echo "No $XC on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
             exit 1
           fi
           sudo xcode-select -s "$XC/Contents/Developer"
