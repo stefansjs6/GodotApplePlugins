@@ -1,13 +1,15 @@
 name: Build and Release Addons
 
 on:
+  # daykeep fork: builds ONLY this branch = upstream commit 3781b9c19eaf69b2387eacecf4b6f88fc8d07e65
+  # (source unchanged) + this workflow, on GitHub-hosted runners instead of the author's own Mac.
   push:
+    branches: [daykeep-build]
+  workflow_dispatch: {}
 
 jobs:
   generate-split-stub-sources:
-    runs-on:
-      - self-hosted
-      - macos
+    runs-on: macos-15
     env:
       GIT_CONFIG_NOSYSTEM: 1
       GIT_TERMINAL_PROMPT: 0
@@ -262,9 +264,7 @@ jobs:
       - build-stub-linux-arm64
       - build-stub-windows-x64
       - build-stub-windows-arm64
-    runs-on:
-      - self-hosted
-      - macos
+    runs-on: macos-15
     timeout-minutes: 120
     permissions:
       contents: write
@@ -536,14 +536,18 @@ jobs:
             --team-id "$APPLE_TEAM_ID" \
             --wait
 
+      # GitHub's own gh CLI instead of a third-party release action. The SHA-256 goes in the notes so
+      # consumers can pin and verify the exact zip this run built.
       - name: Publish release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: build-${{ github.sha }}
-          name: Addons build for ${{ github.sha }}
-          body: Automated build triggered by ${{ github.ref }}
-          files: ${{ env.PACKAGE_NAME }}
+        if: github.ref == 'refs/heads/daykeep-build'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA256=$(shasum -a 256 "$PACKAGE_NAME" | cut -d' ' -f1)
+          echo "SHA-256 $SHA256"
+          NOTES="Built by GitHub Actions from unchanged upstream source migueldeicaza/GodotApplePlugins@3781b9c19eaf69b2387eacecf4b6f88fc8d07e65 plus this workflow. SHA-256: ${SHA256}"
+          gh release create "build-${GITHUB_SHA}" "$PACKAGE_NAME" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Addons build for ${GITHUB_SHA}" --notes "$NOTES"
 
       - name: Clean up signing keychain
         if: always() && env.KEYCHAIN_PATH != ''
