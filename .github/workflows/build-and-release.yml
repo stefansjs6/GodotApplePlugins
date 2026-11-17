@@ -41,6 +41,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Package.swift needs Swift tools 6.2 = Xcode 26; the hosted image defaults to an older Xcode.
+      - name: Select Xcode 26
+        run: |
+          set -euxo pipefail
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XC" ]; then
+            echo "No Xcode 26 on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
       - name: Generate split stub sources
         run: |
           set -euo pipefail
@@ -298,6 +310,18 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Package.swift needs Swift tools 6.2 = Xcode 26; the hosted image defaults to an older Xcode.
+      - name: Select Xcode 26
+        run: |
+          set -euxo pipefail
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XC" ]; then
+            echo "No Xcode 26 on this runner image. Available Xcodes:"; ls -d /Applications/Xcode_*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
 
       - name: Import Code Signing Certificate
         if: env.MACOS_CERTIFICATE != ''
