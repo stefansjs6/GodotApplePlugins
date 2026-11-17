@@ -9,7 +9,7 @@ on:
 
 jobs:
   generate-split-stub-sources:
-    runs-on: macos-15
+    runs-on: macos-15-intel   # arm64 hosted Macs are capacity-starved; Intel cross-builds arm64 fine
     env:
       GIT_CONFIG_NOSYSTEM: 1
       GIT_TERMINAL_PROMPT: 0
@@ -276,8 +276,8 @@ jobs:
       - build-stub-linux-arm64
       - build-stub-windows-x64
       - build-stub-windows-arm64
-    runs-on: macos-15
-    timeout-minutes: 120
+    runs-on: macos-15-intel   # arm64 hosted Macs are capacity-starved; Intel cross-builds arm64 fine
+    timeout-minutes: 300   # hosted Intel is slower than the author's own Mac
     permissions:
       contents: write
     env:
