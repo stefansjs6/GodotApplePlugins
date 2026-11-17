@@ -383,10 +383,39 @@ jobs:
         run: |
           set -euo pipefail
 
-          # daykeep fork: iOS (device + simulator, both needed for the xcframework) + Apple Silicon macOS
-          # (the editor-side import on an arm64 Mac). The Intel-macOS slice is optional in `make dist`
-          # and nothing of ours runs it, so it's skipped to keep the hosted build within memory/time.
-          make split-build DESTINATIONS="generic/platform=iOS generic/platform=iOS\ Simulator platform=macOS,arch=arm64"
+          # iOS device + simulator (the xcframework), built by the Makefile exactly as upstream does.
+          make split-build DESTINATIONS="generic/platform=iOS generic/platform=iOS\ Simulator"
+
+          # macOS (the editor-side load): `make split-dist` needs an arm64 AND an x86_64 framework.
+          # Upstream builds `platform=macOS,arch=arm64` + `arch=x86_64` on an Apple Silicon Mac; this Intel
+          # runner has no arm64 Mac to target ("Unable to find a device matching ... arch:arm64"). So: one
+          # universal build for the generic Mac destination, cloned to the x86_64 derived-data path, then
+          # upstream's own SwiftSyntax relink per arch, which links each copy thin from that arch's objects.
+          # Same products at the same paths as the Makefile's two macOS builds.
+          DD="$PWD/.xcodebuild"
+          FRAMEWORKS="$(sed -n 's/^SPLIT_FRAMEWORK_NAMES ?= //p' Makefile)"
+          [ -n "$FRAMEWORKS" ] || { echo "SPLIT_FRAMEWORK_NAMES not found in Makefile" >&2; exit 1; }
+          for fw in $FRAMEWORKS; do
+            echo "Building $fw for generic/platform=macOS (arm64 + x86_64)"
+            log="$RUNNER_TEMP/xcodebuild-macos-$fw.log"
+            if ! xcodebuild -workspace .swiftpm/xcode/package.xcworkspace -scheme "$fw" -configuration Release \
+                -destination generic/platform=macOS -derivedDataPath "${DD}arm64" \
+                $XCODEBUILD_SETTINGS ONLY_ACTIVE_ARCH=NO build >"$log" 2>&1; then
+              tail -n 300 "$log"
+              exit 1
+            fi
+          done
+          cp -cR "${DD}arm64" "${DD}x86_64"   # APFS clone: no extra disk
+          for arch in arm64 x86_64; do
+            for fw in $FRAMEWORKS; do
+              ./relink_without_swiftsyntax.sh --derived-data "${DD}${arch}" --config Release \
+                --framework "$fw" --platform macos --arch "$arch"
+              bin="${DD}${arch}/Build/Products/Release/PackageFrameworks/$fw.framework/Versions/A/$fw"
+              archs="$(lipo -archs "$bin")"
+              echo "macOS $arch $fw: $archs"
+              case " $archs " in *" $arch "*) ;; *) echo "$fw has no $arch slice" >&2; exit 1 ;; esac
+            done
+          done
 
       - name: Package split addons for Distribution
         run: caffeinate -dimsu make split-dist
